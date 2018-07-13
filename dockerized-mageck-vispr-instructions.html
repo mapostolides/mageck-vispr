@@ -1,0 +1,118 @@
+<p>These are instructions to run a VISPR server inside a docker container, and access the server from an internet browser on your local machine. There are 4 sections to this tutorial:</p>
+<p>To get the hang of using MAGeCK-VISPR, there is a useful tutorial on the Liu lab bitbucket repository, where you will find various youtube videos and instructions.</p>
+<p><a href="https://bitbucket.org/liulab/mageck-vispr/src/master/">MAGeCK-VISPR Tutorial</a></p>
+<p>I will outline the configurations steps below, but feel free to refer to the above documentation as well. Note: The above turtorial describes how to install MAGeCK-VISPR and refers to an installation of Miniconda. However, Miniconda is not needed, and MAGeCK-VISPR is installed in the Docker image you have pulled.</p>
+<p>I. TESTING THE VISPR SERVER INSIDE CONTAINER</p>
+<p>II. USE MAGeCK-VISPR WITHIN CONTAINER TO PROCESS FASTQ FILES ON LOCAL MACHINE</p>
+<p>III. USE MAGECK WITHIN CONTAINER TO PROCESS COUNT TABLE FILES ON LOCAL MACHINE (day0label version, without designmatrix file)</p>
+<p>IV. USE MAGECK WITHIN CONTAINER TO PROCESS COUNT TABLE FILES ON LOCAL MACHINE (with designmatrix file)</p>
+<hr />
+<p>I. TESTING THE VISPR SERVER INSIDE CONTAINER</p>
+<p>This first section involves running a test VISPR server inside a docker container</p>
+1. Pull docker image from docker repository:
+<div class="codehilite">
+<pre><span></span>$ docker pull quay.io/biocontainers/mageck-vispr:0.5.4--py35_1</pre>
+</div>
+<p>-this file is ~2GB, since it is a container with MAGeCK-VISPR installed</p>
+<p>Note: a more recent version of the container may be available at</p>
+<p><a href="http://quay.io/biocontainers/mageck-vispr">http://quay.io/biocontainers/mageck-vispr</a></p>
+<p>However, version <code>0.5.4--py35_1</code> is the one used in this tutorial.</p>
+<p>2. Run docker container in interactive mode, with appropriate port mapping.</p>
+<pre><code>$ docker run -p 8888:5000 -it quay.io/biocontainers/mageck-vispr:0.5.4--py35_1</code></pre>
+<p>The above command is in the following format:</p>
+<pre><code>$ docker run -p &lt;local machine port&gt;:&lt;container port&gt; -it &lt;image name&gt;</code></pre>
+<p>Note that port 5000 MUST be used for the container port, as this is the port that MAGeCK-VISPR defaults to.</p>
+<p>3. Once the container is running, execute the following command from within the container:</p>
+<pre><code>$ vispr test --host 0.0.0.0 --port 5000</code></pre>
+<p>4. On local machine, enter localhost:8888 in Chrome or Firefox to view the VISPR test server that is running inside the docker container. Note that other internet browsers might not work.</p>
+<hr />
+<p>II. USE MAGeCK-VISPR WITHIN CONTAINER TO PROCESS FASTQ FILES ON LOCAL MACHINE</p>
+<p>Assuming you’ve successfully worked through the steps for testing the VISPR server inside a Docker container, you should now have a copy of the Docker image pulled from <code>quay.io/biocontainers/mageck-vispr:0.5.4--py35_1</code></p>
+<p>1. On your local machine, download the esc-test sample directory from:</p>
+<p><a href="https://bitbucket.org/liulab/mageck-vispr/downloads/esc.testdata.step2.tar.bz2">https://bitbucket.org/liulab/mageck-vispr/downloads/esc.testdata.step2.tar.bz2</a></p>
+<p>You will need to unzip the download to extract the <code>esc-test</code> directory.</p>
+<p>2. To access files from your local machine, you will need to map a host directory to a container directory. Run an instance of the image, and add appropriate directory mapping:</p>
+<pre><code>$ docker run -p 8888:5000 -v /path/to/esc-test:/esc-test -it quay.io/biocontainers/mageck-vispr:0.5.4--py35_1</code></pre>
+<p>The <code>esc-test</code> directory will now be accessible from the root directory of the container</p>
+<p>3. Now it is necessary to initialize the workflow directory and the path to the FASTQ reads. The workflow directory is where various files will be generated. For this tutorial, we will use the directory <code>esc-test</code> as our workflow directory. The below instructions will assume that your FASTQ reads are in a subdirectory of your workflow directory.</p>
+<p>It is best if your workflow directory is mapped to the root of your container</p>
+<pre><code>$ mageck-vispr init esc-test --reads esc-test/esc-testdata/reads/*</code></pre>
+<p>The <code>init</code> command produces the following files: -README.txt -Snakefile -config.yaml</p>
+<p><strong>Be careful with the mageck-vispr init command</strong>. -On the first run, it will generate the above files. -The second time it is run in the same directory, new <code>Snakefile</code> and <code>config.yaml</code> files are generated, and the files generated from the first run are renamed to <code>Snakefile.old</code> and <code>config.yaml.old</code>. -Running it a third time will <strong>FULLY DELETE</strong> your original files from the first run.</p>
+<p>For a walkthrough of the <code>init</code> command, watch the <a href="https://www.youtube.com/watch?v=3maSxhy1JL0&amp;feature=youtu.be&amp;t=127">Initialization</a> section of this youtube video.</p>
+3. Before your FASTQ samples can be run, the <code>config.yaml</code> file needs to be modified to suit the needs of your experiment. The modifications can be summarized as follows:
+<ul>
+<li>
+provide path to library design file
+</li>
+<li>
+define species
+</li>
+<li>
+define genome assembly to use
+</li>
+<li>
+specify 5’ trim length and sgRNA length
+</li>
+<li>
+modify sample names (if necessary)
+</li>
+<li>
+provide path to design matrix file
+</li>
+</ul>
+<p>Refer to the <a href="https://www.youtube.com/watch?v=3maSxhy1JL0&feature=youtu.be&t=167">Configuration</a> section of the video for more detailed instructions.</p>
+<p>Notes:</p>
+<ol type="i">
+<li>Under the <code>sgRNAs</code> section, the <code>trim-5</code> and <code>len</code> values must be in double quotes. The video does not do this. If they are not in double quotes as follows, an error will be produced:</li>
+</ol>
+<pre><code>    trim-5: &quot;5&quot;
+    len: &quot;19&quot;</code></pre>
+<p>4. Ensure there are no errors in your configuration by running:</p>
+<pre><code>$ snakemake -n</code></pre>
+<p>5. Run the snakemake workflow by running:</p>
+<pre><code>$ snakemake --cores=&lt;number of cores&gt;</code></pre>
+<p>Running the workflow will vary in how long it takes to run. For some files, your local machine may not be sufficient to run your samples in a timely manner.</p>
+<p>6. Once your samples have finished running, you can run VISPR to view your results:</p>
+<pre><code>$ vispr server results/*.vispr.yaml --host 0.0.0.0 --port 5000</code></pre>
+<p>The <code>--host</code> flag ensures that the local host of your computer can access VISPR.</p>
+<p>For a walkthrough of how to use the VISPR application, refer to the following <a href="https://www.youtube.com/watch?v=-Um-Mrf4_7s">video</a></p>
+<hr />
+<ol start="3" type="I">
+<li>USE MAGECK WITHIN CONTAINER TO PROCESS COUNT TABLE FILES ON LOCAL MACHINE (day0label version, without designmatrix file)</li>
+</ol>
+<p>In addition to being able to process FASTQ files, it is also possible to process count table files with MAGeCK-VISPR. This involves some additional modifications to the configuration file. If you have not yet worked through sections I and II, it is best to work through these sections first.</p>
+<p>1. First, it is important to ensure that your count table file is in the correct format:</p>
+<ol type="i">
+<li>The count table file is a tab-delimited (.txt) file:</li>
+</ol>
+<pre><code>sgRNA   Gene    plasmid ESC1
+chr19:5884430-5884453   SLC25A45        13      32
+chr11:58831475-58831498 OLFR312 94      108
+chr4:49282352-49282375  E130309F12RIK   85      128</code></pre>
+<p>or a comma-separated (.csv) file:</p>
+<pre><code>sgRNA,Gene,plasmid,ESC1
+chr19:5884430-5884453,SLC25A45,13,32
+chr11:58831475-58831498,OLFR312,94,108
+chr4:49282352-49282375,E130309F12RIK,85,128</code></pre>
+<p>Reference: https://sourceforge.net/p/mageck/wiki/Home/#step-4-run-the-mageck-count-command</p>
+<ol start="2" type="i">
+<li>Your .txt/.csv file <strong>must</strong> be in UTF-8/ascii character encoding, and cannot be in UTF-16. You can check its encoding with the following command:</li>
+</ol>
+<p><strong><em>container quay.io/biocontainers/mageck-vispr:0.5.4–py35_1 does not have <code>file</code> package installed. Should I create a new container so that the user can check the file format? How likely is it that the user will try to input a file that is NOT UTF-8 or ascii? </em></strong>**</p>
+<p>$ file -i (linux) or file -I (osx)</p>
+<p>2. Modify the <code>config.yaml</code> file in the following way:</p>
+<ol type="i">
+<li><p>Comment out/remove <code>samples:</code> and everything within that code block. We are starting with a count table file, so there is no need for FASTQ files</p></li>
+<li><p>Uncomment the section <code>counts:</code>, and provide path to your count table file</p></li>
+<li><p>Uncomment the section <code>day0label:</code>, and provide a comma-separated list of your day0/time0/control samples. For example:</p></li>
+</ol>
+<pre><code>day0label: T0_1,T0_2,T0_3</code></pre>
+<p>Note that these sample names must match the names in the column header.</p>
+<ol start="4" type="i">
+<li>Make sure that in your <code>experiments:</code> block, the <code>designmatrix:</code> is set to <code>/dev/null</code>. We are not using a design matrix in this format.</li>
+</ol>
+<p>Once all these changes have been made, you can run your experiment, as in</p>
+<hr />
+<p>REFERENCES</p>
+<p>MAGeCK wiki: https://sourceforge.net/p/mageck/wiki/Home/#step-4-run-the-mageck-count-command</p>
